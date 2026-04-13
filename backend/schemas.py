@@ -254,8 +254,63 @@ class SubscribeAutoResponse(BaseModel):
     items: list[SubscribeItemResponse]
 
 
+class ZoomItemResponse(BaseModel):
+    id: int
+    start_time: float
+    end_time: float
+
+    class Config:
+        from_attributes = True
+
+
+class ZoomItemUpdate(BaseModel):
+    start_time: float | None = None
+    end_time: float | None = None
+
+
+class ZoomAutoResponse(BaseModel):
+    items: list[ZoomItemResponse]
+
+
+class EnlargeItemResponse(BaseModel):
+    id: int
+    start_time: float
+    end_time: float
+
+    class Config:
+        from_attributes = True
+
+
+class EnlargeItemUpdate(BaseModel):
+    start_time: float | None = None
+    end_time: float | None = None
+
+
+class EnlargeAutoResponse(BaseModel):
+    items: list[EnlargeItemResponse]
+
+
 class RemixAutoResponse(BaseModel):
     items: list[TimelineItemResponse]
+
+
+class HookAutoResponse(BaseModel):
+    items: list[TimelineItemResponse]
+
+
+class AnalyzeItemResponse(BaseModel):
+    id: int
+    sub_clip_id: int | None = None
+    text: str
+    start_time: float
+    end_time: float
+
+    class Config:
+        from_attributes = True
+
+
+class AnalyzeAutoResponse(BaseModel):
+    items: list[AnalyzeItemResponse]
 
 
 class SettingsResponse(BaseModel):

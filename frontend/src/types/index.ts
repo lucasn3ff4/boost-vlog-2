@@ -104,6 +104,26 @@ export interface SubscribeItem {
   end_time: number
 }
 
+export interface ZoomItem {
+  id: number
+  start_time: number
+  end_time: number
+}
+
+export interface EnlargeItem {
+  id: number
+  start_time: number
+  end_time: number
+}
+
+export interface AnalyzeItem {
+  id: number
+  sub_clip_id: number | null
+  text: string
+  start_time: number
+  end_time: number
+}
+
 export interface VolumeKeypoint {
   t: number;
   v: number;

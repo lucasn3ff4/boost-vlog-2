@@ -2,10 +2,11 @@ import React, { useCallback, useMemo } from "react";
 import { AbsoluteFill, Audio, OffthreadVideo, Sequence, useCurrentFrame } from "remotion";
 import { secondsToFrames, interpolateEnvelope, FPS } from "../lib/remotion";
 import { useTimelineStore } from "../stores/timelineStore";
-import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, ZoomItem, EnlargeItem, VolumeKeypoint } from "../types";
 
 const PREMOUNT_FRAMES = 30;
 const BROLL_AUDIO_VOLUME = 0.15;
+const REMIX_AUDIO_VOLUME = 0.9;
 
 export interface Props {
   items: TimelineItem[];
@@ -16,6 +17,8 @@ export interface Props {
   timestampItems?: TimestampItem[];
   trackerItems?: TrackerItem[];
   subscribeItems?: SubscribeItem[];
+  zoomItems?: ZoomItem[];
+  enlargeItems?: EnlargeItem[];
   /** Base URL prefix for API paths during server-side render (e.g. "http://localhost:8000") */
   baseUrl?: string;
   /** Local file paths for SFX (server-side render only) */
@@ -38,6 +41,8 @@ export const TimelineComposition: React.FC<Props> = React.memo(({
   timestampItems: propTimestamps,
   trackerItems: propTrackers,
   subscribeItems: propSubscribes,
+  zoomItems: propZooms,
+  enlargeItems: propEnlarges,
   baseUrl = "",
   sfxTitleInPath,
   sfxTitleOutPath,
@@ -47,6 +52,11 @@ export const TimelineComposition: React.FC<Props> = React.memo(({
   const storeMusic = useTimelineStore((s) => s.musicItems);
   const musicItems = propMusic ?? storeMusic;
   const hasMusic = musicItems.length > 0;
+
+  const storeZooms = useTimelineStore((s) => s.zoomItems);
+  const zoomItems = propZooms ?? storeZooms;
+  const storeEnlarges = useTimelineStore((s) => s.enlargeItems);
+  const enlargeItems = propEnlarges ?? storeEnlarges;
 
   const layout = useMemo(() => {
     let cursor = 0;
@@ -81,7 +91,6 @@ export const TimelineComposition: React.FC<Props> = React.memo(({
       <MusicLayer musicItems={propMusic} volumeEnvelope={propEnvelope} baseUrl={baseUrl} />
       {toMount.map((i) => {
         const clip = layout[i];
-        const videoStartFrame = secondsToFrames(clip.item.start_time);
 
         return (
           <Sequence
@@ -90,17 +99,13 @@ export const TimelineComposition: React.FC<Props> = React.memo(({
             durationInFrames={clip.durationInFrames}
             premountFor={PREMOUNT_FRAMES}
           >
-            <AbsoluteFill>
-              <OffthreadVideo
-                src={`${baseUrl}${clip.item.video_url}`}
-                startFrom={videoStartFrame}
-                endAt={videoStartFrame + clip.durationInFrames}
-                pauseWhenBuffering
-                delayRenderTimeoutInMilliseconds={240000}
-                volume={hasMusic && clip.item.clip_type === "broll" ? BROLL_AUDIO_VOLUME : 1}
-                style={{ width: "100%", height: "100%", objectFit: "contain" }}
-              />
-            </AbsoluteFill>
+            <VideoClipWithEffects
+              clip={clip}
+              baseUrl={baseUrl}
+              hasMusic={hasMusic}
+              zoomItems={zoomItems}
+              enlargeItems={enlargeItems}
+            />
           </Sequence>
         );
       })}
@@ -112,6 +117,49 @@ export const TimelineComposition: React.FC<Props> = React.memo(({
     </AbsoluteFill>
   );
 });
+
+const VideoClipWithEffects: React.FC<{
+  clip: ClipLayout;
+  baseUrl: string;
+  hasMusic: boolean;
+  zoomItems: ZoomItem[];
+  enlargeItems: EnlargeItem[];
+}> = ({ clip, baseUrl, hasMusic, zoomItems, enlargeItems }) => {
+  const videoStartFrame = secondsToFrames(clip.item.start_time);
+
+  const clipTimelineStart = clip.startFrame / FPS;
+  const clipTimelineEnd = clipTimelineStart + clip.durationInFrames / FPS;
+
+  // Check for enlarge effect (static 5% scale-up)
+  let isEnlarged = false;
+  for (const ei of enlargeItems) {
+    if (ei.end_time > clipTimelineStart && ei.start_time < clipTimelineEnd) {
+      isEnlarged = true;
+      break;
+    }
+  }
+
+  return (
+    <AbsoluteFill>
+      <OffthreadVideo
+        src={`${baseUrl}${clip.item.video_url}`}
+        startFrom={videoStartFrame}
+        endAt={videoStartFrame + clip.durationInFrames}
+        pauseWhenBuffering
+        delayRenderTimeoutInMilliseconds={240000}
+        volume={hasMusic && clip.item.clip_type === "broll" ? BROLL_AUDIO_VOLUME : clip.item.clip_type === "remix" ? REMIX_AUDIO_VOLUME : 1}
+        style={{
+          width: isEnlarged ? "105%" : "100%",
+          height: isEnlarged ? "105%" : "100%",
+          position: isEnlarged ? "absolute" : undefined,
+          left: isEnlarged ? "-2.5%" : undefined,
+          top: isEnlarged ? "-2.5%" : undefined,
+          objectFit: "contain",
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
 
 const TitleOverlay: React.FC<{ text: string }> = ({ text }) => {
   const frame = useCurrentFrame();

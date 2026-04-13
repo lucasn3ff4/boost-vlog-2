@@ -8,7 +8,7 @@ from urllib.parse import quote
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import TimelineItem, MusicItem, Asset, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem
+from models import TimelineItem, MusicItem, Asset, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, ZoomItem, EnlargeItem
 from routes.ws import broadcast
 from services.ducker import compute_volume_envelope
 from services.sfx_generator import TITLE_IN_PATH, TITLE_OUT_PATH, ensure_title_sfx
@@ -42,6 +42,8 @@ def _build_input_props(
     timestamp_items: list[TimestampItem],
     tracker_items: list[TrackerItem],
     subscribe_items: list[SubscribeItem],
+    zoom_items: list[ZoomItem],
+    enlarge_items: list[EnlargeItem],
     volume_envelope: list[dict],
 ) -> dict:
     """Serialize all data into Remotion inputProps with absolute URLs."""
@@ -131,6 +133,16 @@ def _build_input_props(
         for si in subscribe_items
     ]
 
+    zoom_data = [
+        {"id": zi.id, "start_time": zi.start_time, "end_time": zi.end_time}
+        for zi in zoom_items
+    ]
+
+    enlarge_data = [
+        {"id": ei.id, "start_time": ei.start_time, "end_time": ei.end_time}
+        for ei in enlarge_items
+    ]
+
     # Compute total duration in frames
     total_frames = 0
     for t in timeline_data:
@@ -145,6 +157,8 @@ def _build_input_props(
         "timestampItems": timestamp_data,
         "trackerItems": tracker_data,
         "subscribeItems": subscribe_data,
+        "zoomItems": zoom_data,
+        "enlargeItems": enlarge_data,
         "baseUrl": BASE_URL,
         "sfxTitleInPath": f"{BASE_URL}/api/sfx/title-in",
         "sfxTitleOutPath": f"{BASE_URL}/api/sfx/title-out",
@@ -206,13 +220,26 @@ async def render_timeline(project_id: int, output_path: str) -> str:
             .order_by(SubscribeItem.start_time)
             .all()
         )
+        zoom_items = (
+            db.query(ZoomItem)
+            .filter(ZoomItem.project_id == project_id)
+            .order_by(ZoomItem.start_time)
+            .all()
+        )
+        enlarge_items = (
+            db.query(EnlargeItem)
+            .filter(EnlargeItem.project_id == project_id)
+            .order_by(EnlargeItem.start_time)
+            .all()
+        )
 
         # Compute volume envelope for music ducking
         segments, total_duration = _build_timeline_segments(items)
         envelope = compute_volume_envelope(segments, total_duration) if music_items else []
 
         input_props = _build_input_props(
-            items, music_items, title_items, caption_items, timestamp_items, tracker_items, subscribe_items, envelope,
+            items, music_items, title_items, caption_items, timestamp_items, tracker_items, subscribe_items,
+            zoom_items, enlarge_items, envelope,
         )
 
         if not input_props["items"]:

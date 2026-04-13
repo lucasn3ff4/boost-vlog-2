@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Float, Enum, ForeignKey, DateTime, func
+from sqlalchemy import Boolean, Column, Integer, String, Float, Enum, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -53,6 +53,9 @@ class Project(Base):
     timestamp_items = relationship("TimestampItem", back_populates="project", cascade="all, delete-orphan")
     tracker_items = relationship("TrackerItem", back_populates="project", cascade="all, delete-orphan")
     subscribe_items = relationship("SubscribeItem", back_populates="project", cascade="all, delete-orphan")
+    zoom_items = relationship("ZoomItem", back_populates="project", cascade="all, delete-orphan")
+    enlarge_items = relationship("EnlargeItem", back_populates="project", cascade="all, delete-orphan")
+    analyze_items = relationship("AnalyzeItem", back_populates="project", cascade="all, delete-orphan")
 
 
 class Clip(Base):
@@ -95,6 +98,7 @@ class TimelineItem(Base):
     clip_id = Column(Integer, ForeignKey("clips.id"), nullable=True)
     sub_clip_id = Column(Integer, ForeignKey("sub_clips.id"), nullable=True)
     position = Column(Integer, nullable=False)
+    is_hook = Column(Boolean, default=False)
 
     project = relationship("Project", back_populates="timeline_items")
     clip = relationship("Clip")
@@ -184,6 +188,42 @@ class SubscribeItem(Base):
     end_time = Column(Float, nullable=False)
 
     project = relationship("Project", back_populates="subscribe_items")
+
+
+class ZoomItem(Base):
+    __tablename__ = "zoom_items"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+
+    project = relationship("Project", back_populates="zoom_items")
+
+
+class EnlargeItem(Base):
+    __tablename__ = "enlarge_items"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+
+    project = relationship("Project", back_populates="enlarge_items")
+
+
+class AnalyzeItem(Base):
+    __tablename__ = "analyze_items"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    sub_clip_id = Column(Integer, ForeignKey("sub_clips.id"), nullable=True)
+    text = Column(String, nullable=False)
+    start_time = Column(Float, nullable=False)
+    end_time = Column(Float, nullable=False)
+
+    project = relationship("Project", back_populates="analyze_items")
+    sub_clip = relationship("SubClip")
 
 
 class AppSettings(Base):

@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from database import engine, Base
-from routes import projects, clips, timeline, render, ws, filesystem, generate, youtube, assets, music, titles, captions, timestamps, sfx, settings, trackers, subscribes, remixes
+from routes import projects, clips, timeline, render, ws, filesystem, generate, youtube, assets, music, titles, captions, timestamps, sfx, settings, trackers, subscribes, remixes, hooks, zooms, enlarges, analyzes
 from workers.queue import processing_queue, process_worker
 from services.watcher import set_queue
 from config import PROCESSED_DIR, DATA_DIR, ASSETS_DIR, REMIX_DIR
@@ -50,6 +50,11 @@ async def lifespan(app: FastAPI):
                 dflt = f" DEFAULT {default}" if default else ""
                 conn.execute(sqlalchemy.text(f"ALTER TABLE clips ADD COLUMN {col} {col_type}{dflt}"))
         conn.commit()
+        # Migrate timeline_items table
+        existing_tl = {row[1] for row in conn.execute(sqlalchemy.text("PRAGMA table_info(timeline_items)"))}
+        if "is_hook" not in existing_tl:
+            conn.execute(sqlalchemy.text("ALTER TABLE timeline_items ADD COLUMN is_hook INTEGER DEFAULT 0"))
+        conn.commit()
     set_queue(processing_queue)
     task = asyncio.create_task(process_worker())
     yield
@@ -90,3 +95,7 @@ app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(trackers.router, prefix="/api/trackers", tags=["trackers"])
 app.include_router(subscribes.router, prefix="/api/subscribes", tags=["subscribes"])
 app.include_router(remixes.router, prefix="/api/remixes", tags=["remixes"])
+app.include_router(hooks.router, prefix="/api/hooks", tags=["hooks"])
+app.include_router(zooms.router, prefix="/api/zooms", tags=["zooms"])
+app.include_router(enlarges.router, prefix="/api/enlarges", tags=["enlarges"])
+app.include_router(analyzes.router, prefix="/api/analyzes", tags=["analyzes"])

@@ -1,5 +1,5 @@
 import type { TimelineRow, TimelineAction } from "@xzdarcy/react-timeline-editor";
-import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, ZoomItem, EnlargeItem, AnalyzeItem, VolumeKeypoint } from "../types";
 
 export const FPS = 30;
 
@@ -48,11 +48,24 @@ export interface SubscribeAction extends TimelineAction {
   subscribeId: number;
 }
 
+export interface ZoomAction extends TimelineAction {
+  zoomId: number;
+}
+
+export interface EnlargeAction extends TimelineAction {
+  enlargeId: number;
+}
+
+export interface AnalyzeAction extends TimelineAction {
+  analyzeText: string;
+  analyzeId: number;
+}
+
 /**
  * Convert backend TimelineItem[] and MusicItem[] into react-timeline-editor format.
  * Produces a video track and optionally a music track.
  */
-export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], titleItems?: TitleItem[], captionItems?: CaptionItem[], timestampItems?: TimestampItem[], trackerItems?: TrackerItem[], subscribeItems?: SubscribeItem[]): {
+export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], titleItems?: TitleItem[], captionItems?: CaptionItem[], timestampItems?: TimestampItem[], trackerItems?: TrackerItem[], subscribeItems?: SubscribeItem[], zoomItems?: ZoomItem[], enlargeItems?: EnlargeItem[], analyzeItems?: AnalyzeItem[]): {
   rows: TimelineRow[];
   actions: VideoAction[];
   totalDuration: number;
@@ -130,6 +143,31 @@ export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], ti
     subscribeId: si.id,
   }));
 
+  const zoomActions: ZoomAction[] = (zoomItems || []).map((zi) => ({
+    id: `zoom-${zi.id}`,
+    start: zi.start_time,
+    end: zi.end_time,
+    effectId: "zoom",
+    zoomId: zi.id,
+  }));
+
+  const enlargeActions: EnlargeAction[] = (enlargeItems || []).map((ei) => ({
+    id: `enlarge-${ei.id}`,
+    start: ei.start_time,
+    end: ei.end_time,
+    effectId: "enlarge",
+    enlargeId: ei.id,
+  }));
+
+  const analyzeActions: AnalyzeAction[] = (analyzeItems || []).map((ai) => ({
+    id: `analyze-${ai.id}`,
+    start: ai.start_time,
+    end: ai.end_time,
+    effectId: "analyze",
+    analyzeText: ai.text,
+    analyzeId: ai.id,
+  }));
+
   const rows: TimelineRow[] = [
     { id: "video-track", actions },
     { id: "music-track", actions: musicActions },
@@ -138,6 +176,9 @@ export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], ti
     { id: "timestamp-track", actions: timestampActions },
     { id: "tracker-track", actions: trackerActions },
     { id: "subscribe-track", actions: subscribeActions },
+    { id: "zoom-track", actions: zoomActions },
+    { id: "enlarge-track", actions: enlargeActions },
+    { id: "analyze-track", actions: analyzeActions },
   ];
 
   return { rows, actions, totalDuration: cursor };

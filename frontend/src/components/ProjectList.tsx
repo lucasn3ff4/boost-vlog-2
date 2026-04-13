@@ -23,6 +23,8 @@ export function ProjectList() {
     setTimestampItems,
     setTrackerItems,
     setSubscribeItems,
+    setZoomItems,
+    setEnlargeItems,
   } = useTimelineStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +111,18 @@ export function ProjectList() {
       .then((data) => {
         if (data) setSubscribeItems(data.items || []);
       });
+    // Load zoom items
+    fetch(`/api/zooms/${id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setZoomItems(data.items || []);
+      });
+    // Load enlarge items
+    fetch(`/api/enlarges/${id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setEnlargeItems(data.items || []);
+      });
     setIsWatching(true);
     // Start watching in background — new clips arrive via websocket
     setScanningFiles(true);
@@ -166,6 +180,10 @@ export function ProjectList() {
       setTimestampItems([]);
       setTrackerItems([]);
       setSubscribeItems([]);
+      setZoomItems([]);
+      setEnlargeItems([]);
+      setMusicItems([]);
+      setVolumeEnvelope([]);
       // Navigate immediately — don't wait for scan
       setProject(proj);
       setClips([]);
