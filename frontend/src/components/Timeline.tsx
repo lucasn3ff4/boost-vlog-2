@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Timeline as TimelineEditor, type TimelineState } from "@xzdarcy/react-timeline-editor";
 import "@xzdarcy/react-timeline-editor/dist/react-timeline-editor.css";
 import { useTimelineStore } from "../stores/timelineStore";
-import { toEditorData, timelineSecondsToFrame, type VideoAction, type MusicAction, type TitleAction, type CaptionAction, type TimestampAction } from "../lib/remotion";
+import { toEditorData, timelineSecondsToFrame, type VideoAction, type MusicAction, type TitleAction, type CaptionAction, type TimestampAction, type SubscribeAction, type AnalyzeAction } from "../lib/remotion";
 
 const effects = {
   video: {
@@ -33,6 +33,18 @@ const effects = {
     id: "subscribe",
     name: "Subscribe",
   },
+  zoom: {
+    id: "zoom",
+    name: "Slow Zoom",
+  },
+  enlarge: {
+    id: "enlarge",
+    name: "Enlarge",
+  },
+  analyze: {
+    id: "analyze",
+    name: "Analyze",
+  },
 };
 
 const SCALE = 5; // seconds per tick
@@ -48,8 +60,12 @@ export function Timeline() {
     captionItems, setCaptionItems, captionLoading, setCaptionLoading, updateCaptionItem,
     timestampItems, setTimestampItems, timestampLoading, setTimestampLoading, updateTimestampItem,
     trackerItems, setTrackerItems, trackerLoading, setTrackerLoading,
-    subscribeItems, setSubscribeItems, subscribeLoading, setSubscribeLoading,
+    subscribeItems, setSubscribeItems, subscribeLoading, setSubscribeLoading, updateSubscribeItem,
+    zoomItems, setZoomItems, zoomLoading, setZoomLoading,
+    enlargeItems, setEnlargeItems, enlargeLoading, setEnlargeLoading,
+    analyzeItems, setAnalyzeItems, analyzeLoading, setAnalyzeLoading,
     remixLoading, setRemixLoading,
+    hookLoading, setHookLoading,
   } = useTimelineStore();
   const timelineRef = useRef<TimelineState>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -65,8 +81,8 @@ export function Timeline() {
   const [editingTimestampText, setEditingTimestampText] = useState("");
 
   const { rows, totalDuration } = useMemo(
-    () => toEditorData(timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems),
-    [timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems]
+    () => toEditorData(timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, zoomItems, enlargeItems, analyzeItems),
+    [timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, zoomItems, enlargeItems, analyzeItems]
   );
 
   // Auto-fit: calculate scaleWidth so all clips fit in the container
@@ -297,6 +313,69 @@ export function Timeline() {
     setSubscribeItems([]);
   };
 
+  const handleAddZoom = async () => {
+    if (!project) return;
+    setZoomLoading(true);
+    try {
+      const res = await fetch(`/api/zooms/${project.id}/auto`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setZoomItems(data.items);
+      }
+    } finally {
+      setZoomLoading(false);
+    }
+  };
+
+  const handleClearZoom = async () => {
+    if (!project) return;
+    await fetch(`/api/zooms/${project.id}`, { method: "DELETE" });
+    setZoomItems([]);
+  };
+
+  const handleAddEnlarge = async () => {
+    if (!project) return;
+    setEnlargeLoading(true);
+    try {
+      const res = await fetch(`/api/enlarges/${project.id}/auto`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setEnlargeItems(data.items);
+      }
+    } finally {
+      setEnlargeLoading(false);
+    }
+  };
+
+  const handleClearEnlarge = async () => {
+    if (!project) return;
+    await fetch(`/api/enlarges/${project.id}`, { method: "DELETE" });
+    setEnlargeItems([]);
+  };
+
+  const handleAddAnalyze = async () => {
+    if (!project) return;
+    setAnalyzeLoading(true);
+    try {
+      const res = await fetch(`/api/analyzes/${project.id}/auto`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setAnalyzeItems(data.items);
+      } else {
+        const err = await res.json().catch(() => null);
+        alert(err?.detail || "Failed to analyze b-roll");
+      }
+    } finally {
+      setAnalyzeLoading(false);
+    }
+  };
+
+  const handleClearAnalyze = async () => {
+    if (!project) return;
+    await fetch(`/api/analyzes/${project.id}`, { method: "DELETE" });
+    setAnalyzeItems([]);
+  };
+
   const handleAddRemixes = async () => {
     if (!project) return;
     setRemixLoading(true);
@@ -323,6 +402,32 @@ export function Timeline() {
     }
   };
 
+  const handleAddHook = async () => {
+    if (!project) return;
+    setHookLoading(true);
+    try {
+      const res = await fetch(`/api/hooks/${project.id}/auto`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setTimelineItems(data.items);
+      } else {
+        const err = await res.json().catch(() => null);
+        alert(err?.detail || "Failed to generate hook");
+      }
+    } finally {
+      setHookLoading(false);
+    }
+  };
+
+  const handleClearHook = async () => {
+    if (!project) return;
+    const res = await fetch(`/api/hooks/${project.id}`, { method: "DELETE" });
+    if (res.ok) {
+      const data = await res.json();
+      setTimelineItems(data.items);
+    }
+  };
+
   if (!project) return null;
 
   const trackLabels = useMemo(() => {
@@ -343,10 +448,16 @@ export function Timeline() {
         labels.push({ id: row.id, track: "tracker", label: "Trackers", hasItems: trackerItems.length > 0, loading: trackerLoading, onAdd: handleAddTrackers, onClear: handleClearTrackers });
       } else if (row.id === "subscribe-track") {
         labels.push({ id: row.id, track: "subscribe", label: "Subscribe", hasItems: subscribeItems.length > 0, loading: subscribeLoading, onAdd: handleAddSubscribe, onClear: handleClearSubscribe });
+      } else if (row.id === "zoom-track") {
+        labels.push({ id: row.id, track: "zoom", label: "Slow Zoom", hasItems: zoomItems.length > 0, loading: zoomLoading, onAdd: handleAddZoom, onClear: handleClearZoom });
+      } else if (row.id === "enlarge-track") {
+        labels.push({ id: row.id, track: "enlarge", label: "Enlarge", hasItems: enlargeItems.length > 0, loading: enlargeLoading, onAdd: handleAddEnlarge, onClear: handleClearEnlarge });
+      } else if (row.id === "analyze-track") {
+        labels.push({ id: row.id, track: "analyze", label: "Analyze", hasItems: analyzeItems.length > 0, loading: analyzeLoading, onAdd: handleAddAnalyze, onClear: handleClearAnalyze });
       }
     }
     return labels;
-  }, [rows, timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, remixLoading, musicLoading, titleLoading, captionLoading, timestampLoading, trackerLoading, subscribeLoading]);
+  }, [rows, timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, zoomItems, enlargeItems, analyzeItems, remixLoading, musicLoading, titleLoading, captionLoading, timestampLoading, trackerLoading, subscribeLoading, zoomLoading, enlargeLoading, analyzeLoading]);
 
   return (
     <div className="timeline-container">
@@ -371,6 +482,19 @@ export function Timeline() {
             Fit all
           </label>
           <span className="timeline-duration">{totalDuration.toFixed(1)}s</span>
+          {timelineItems.length > 0 && (
+            <button
+              className={`timeline-hook-btn ${hookLoading ? "loading" : ""}`}
+              onClick={timelineItems.some(i => i.label?.startsWith("hook ")) ? handleClearHook : handleAddHook}
+              disabled={hookLoading}
+            >
+              {hookLoading
+                ? "Hook..."
+                : timelineItems.some(i => i.label?.startsWith("hook "))
+                  ? "× Hook"
+                  : "+ Hook"}
+            </button>
+          )}
         </div>
       </div>
       {rows[0]?.actions.length === 0 ? (
@@ -505,6 +629,16 @@ export function Timeline() {
                   </div>
                 );
               }
+              if (action.effectId === "subscribe") {
+                return (
+                  <div className="tl-action-render subscribe" title="Subscribe overlay">
+                    <span className="tl-action-label">Subscribe</span>
+                    <span className="tl-action-dur">
+                      {(action.end - action.start).toFixed(1)}s
+                    </span>
+                  </div>
+                );
+              }
               if (action.effectId === "tracker") {
                 return (
                   <div className="tl-action-render tracker" title="Tracker overlay">
@@ -512,6 +646,34 @@ export function Timeline() {
                     <span className="tl-action-dur">
                       {(action.end - action.start).toFixed(1)}s
                     </span>
+                  </div>
+                );
+              }
+              if (action.effectId === "zoom") {
+                return (
+                  <div className="tl-action-render zoom" title="Slow Zoom">
+                    <span className="tl-action-label">Zoom</span>
+                    <span className="tl-action-dur">
+                      {(action.end - action.start).toFixed(1)}s
+                    </span>
+                  </div>
+                );
+              }
+              if (action.effectId === "enlarge") {
+                return (
+                  <div className="tl-action-render enlarge" title="Enlarge 5%">
+                    <span className="tl-action-label">Enlarge</span>
+                    <span className="tl-action-dur">
+                      {(action.end - action.start).toFixed(1)}s
+                    </span>
+                  </div>
+                );
+              }
+              if (action.effectId === "analyze") {
+                const az = action as unknown as AnalyzeAction;
+                return (
+                  <div className="tl-action-render analyze" title={az.analyzeText}>
+                    <span className="tl-action-label">{az.analyzeText}</span>
                   </div>
                 );
               }
@@ -539,6 +701,19 @@ export function Timeline() {
                   </span>
                 </div>
               );
+            }}
+            onChange={(editorData) => {
+              for (const row of editorData) {
+                for (const action of row.actions) {
+                  if (action.effectId === "subscribe") {
+                    const sa = action as unknown as SubscribeAction;
+                    updateSubscribeItem(sa.subscribeId, {
+                      start_time: action.start,
+                      end_time: action.end,
+                    });
+                  }
+                }
+              }
             }}
           />
           </div>

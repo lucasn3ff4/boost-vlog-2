@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { RefObject } from "react";
 import type { PlayerRef } from "@remotion/player";
-import type { Project, Clip, TimelineItem, Asset, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, VolumeKeypoint } from "../types";
+import type { Project, Clip, TimelineItem, Asset, MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, ZoomItem, EnlargeItem, AnalyzeItem, VolumeKeypoint } from "../types";
 
 interface TimelineStore {
   project: Project | null;
@@ -91,10 +91,33 @@ interface TimelineStore {
   subscribeLoading: boolean;
   setSubscribeItems: (items: SubscribeItem[]) => void;
   setSubscribeLoading: (loading: boolean) => void;
+  updateSubscribeItem: (id: number, updates: Partial<SubscribeItem>) => void;
+
+  // Zoom adjustment items
+  zoomItems: ZoomItem[];
+  zoomLoading: boolean;
+  setZoomItems: (items: ZoomItem[]) => void;
+  setZoomLoading: (loading: boolean) => void;
+
+  // Enlarge adjustment items
+  enlargeItems: EnlargeItem[];
+  enlargeLoading: boolean;
+  setEnlargeItems: (items: EnlargeItem[]) => void;
+  setEnlargeLoading: (loading: boolean) => void;
+
+  // Analyze descriptions
+  analyzeItems: AnalyzeItem[];
+  analyzeLoading: boolean;
+  setAnalyzeItems: (items: AnalyzeItem[]) => void;
+  setAnalyzeLoading: (loading: boolean) => void;
 
   // Remix clips
   remixLoading: boolean;
   setRemixLoading: (loading: boolean) => void;
+
+  // Hook highlights
+  hookLoading: boolean;
+  setHookLoading: (loading: boolean) => void;
 
   // Auto-save status
   saveStatus: "idle" | "saving" | "saved";
@@ -226,9 +249,33 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   subscribeLoading: false,
   setSubscribeItems: (subscribeItems) => set({ subscribeItems }),
   setSubscribeLoading: (subscribeLoading) => set({ subscribeLoading }),
+  updateSubscribeItem: (id, updates) =>
+    set((state) => ({
+      subscribeItems: state.subscribeItems.map((s) =>
+        s.id === id ? { ...s, ...updates } : s
+      ),
+    })),
+
+  zoomItems: [],
+  zoomLoading: false,
+  setZoomItems: (zoomItems) => set({ zoomItems }),
+  setZoomLoading: (zoomLoading) => set({ zoomLoading }),
+
+  enlargeItems: [],
+  enlargeLoading: false,
+  setEnlargeItems: (enlargeItems) => set({ enlargeItems }),
+  setEnlargeLoading: (enlargeLoading) => set({ enlargeLoading }),
+
+  analyzeItems: [],
+  analyzeLoading: false,
+  setAnalyzeItems: (analyzeItems) => set({ analyzeItems }),
+  setAnalyzeLoading: (analyzeLoading) => set({ analyzeLoading }),
 
   remixLoading: false,
   setRemixLoading: (remixLoading) => set({ remixLoading }),
+
+  hookLoading: false,
+  setHookLoading: (hookLoading) => set({ hookLoading }),
 
   saveStatus: "idle" as const,
   setSaveStatus: (saveStatus) => set({ saveStatus }),
