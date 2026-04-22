@@ -1,6 +1,12 @@
 # Boost Vlog
 
-Record your day, put videos in a folder, get a vlog + YouTube video title + thumbnails + description. Upload to YouTube right from the app.
+- Record your day
+- Put videos in a folder
+- Get a vlog + 
+
+Auto-generates YouTube video title, thumbnails, and description.
+
+Upload to YouTube right from the app.
 
 --
 
@@ -20,7 +26,7 @@ AI-assisted vlog editing pipeline. Point it at a folder of raw footage and it tr
 - Node.js 18+
 - `ffmpeg` and `ffprobe` on your `PATH`
 - A `.env` file at the repo root. Variables (see [backend/config.py](backend/config.py)):
-  - `GEMINI_API_KEY` — required for remixes
+  - `GEMINI_API_KEY` — required for remixes (AI generated scene transitions)
   - `ANTHROPIC_API_KEY` — required for titles/descriptions
   - `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET` — required for upload
   - `DEEPGRAM_API_KEY` — optional
