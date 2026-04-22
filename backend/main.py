@@ -55,6 +55,11 @@ async def lifespan(app: FastAPI):
         if "is_hook" not in existing_tl:
             conn.execute(sqlalchemy.text("ALTER TABLE timeline_items ADD COLUMN is_hook INTEGER DEFAULT 0"))
         conn.commit()
+        # Migrate analyze_items table
+        existing_ai = {row[1] for row in conn.execute(sqlalchemy.text("PRAGMA table_info(analyze_items)"))}
+        if "clip_id" not in existing_ai:
+            conn.execute(sqlalchemy.text("ALTER TABLE analyze_items ADD COLUMN clip_id INTEGER REFERENCES clips(id)"))
+        conn.commit()
     set_queue(processing_queue)
     task = asyncio.create_task(process_worker())
     yield

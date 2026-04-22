@@ -1,13 +1,17 @@
+import logging
 import shutil
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import (
-    Clip, ClipType, Project, SubClip, TimelineItem,
+    AnalyzeItem, Clip, ClipType, EnlargeItem, MusicItem, Project, SubClip, TimelineItem,
     TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem,
+    ZoomItem,
 )
 from schemas import RemixAutoResponse, TimelineItemResponse
 from config import REMIX_DIR
@@ -39,6 +43,7 @@ def _walk_timeline(timeline_items: list[TimelineItem]) -> list[dict]:
             end_time = sub.end_time
             clip_type = clip.clip_type.value if clip.clip_type else None
             clip_id = clip.id
+            sub_clip_id = sub.id
             transcript = clip.transcript
         elif item.clip_id and item.clip:
             clip = item.clip
@@ -48,6 +53,7 @@ def _walk_timeline(timeline_items: list[TimelineItem]) -> list[dict]:
             end_time = duration
             clip_type = clip.clip_type.value if clip.clip_type else None
             clip_id = clip.id
+            sub_clip_id = None
             transcript = clip.transcript
         else:
             continue
@@ -59,6 +65,7 @@ def _walk_timeline(timeline_items: list[TimelineItem]) -> list[dict]:
             "position": item.position,
             "clip_type": clip_type,
             "clip_id": clip_id,
+            "sub_clip_id": sub_clip_id,
             "source_path": source_path,
             "start_time": start_time,
             "end_time": end_time,
@@ -73,11 +80,12 @@ def _walk_timeline(timeline_items: list[TimelineItem]) -> list[dict]:
 
 def _shift_overlay_times(db: Session, project_id: int, after_time: float, shift: float):
     """Shift start_time/end_time of all overlay items that start after the given time."""
-    for model in (TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem):
+    for model in (MusicItem, TitleItem, CaptionItem, TimestampItem, TrackerItem, SubscribeItem, ZoomItem, EnlargeItem, AnalyzeItem):
         items = db.query(model).filter(
             model.project_id == project_id,
             model.start_time >= after_time,
         ).all()
+        logger.info("Shifting %d %s items (after_time=%.3f, shift=%.3f)", len(items), model.__tablename__, after_time, shift)
         for item in items:
             item.start_time += shift
             item.end_time += shift
@@ -131,6 +139,22 @@ async def auto_generate_remixes(project_id: int, db: Session = Depends(get_db)):
     boundaries = find_boundaries(entries)
     if not boundaries:
         raise HTTPException(400, "No b-roll/talking boundaries found in timeline")
+
+    # Require analyze descriptions and attach them to boundaries
+    analyze_items = (
+        db.query(AnalyzeItem)
+        .filter(AnalyzeItem.project_id == project_id)
+        .all()
+    )
+    if not analyze_items:
+        raise HTTPException(400, "B-roll descriptions required — run Analyze first")
+
+    # Build lookup by sub_clip_id
+    analyze_by_sub_clip = {a.sub_clip_id: a.text for a in analyze_items if a.sub_clip_id}
+    for b in boundaries:
+        sc_id = b.get("broll_sub_clip_id")
+        if sc_id and sc_id in analyze_by_sub_clip:
+            b["broll_description"] = analyze_by_sub_clip[sc_id]
 
     # Claude decides count and generates prompts
     selections = select_boundaries_and_generate_prompts(boundaries, total_duration)

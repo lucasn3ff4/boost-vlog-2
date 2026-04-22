@@ -98,6 +98,21 @@ export function useWebSocket(projectId: number | null) {
           store.setYoutubeUploadProgress(null);
           store.setYoutubeUploadError(msg.data.error as string);
           break;
+
+        case "analyze_item_done":
+          store.addAnalyzeItem({
+            id: msg.data.id as number,
+            clip_id: (msg.data.clip_id as number | null) ?? null,
+            sub_clip_id: (msg.data.sub_clip_id as number | null) ?? null,
+            text: msg.data.text as string,
+            start_time: msg.data.start_time as number,
+            end_time: msg.data.end_time as number,
+          });
+          break;
+
+        case "analyze_done":
+          store.setAnalyzeLoading(false);
+          break;
       }
     };
 

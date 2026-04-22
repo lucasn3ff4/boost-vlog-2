@@ -110,6 +110,7 @@ interface TimelineStore {
   analyzeLoading: boolean;
   setAnalyzeItems: (items: AnalyzeItem[]) => void;
   setAnalyzeLoading: (loading: boolean) => void;
+  addAnalyzeItem: (item: AnalyzeItem) => void;
 
   // Remix clips
   remixLoading: boolean;
@@ -270,6 +271,16 @@ export const useTimelineStore = create<TimelineStore>((set) => ({
   analyzeLoading: false,
   setAnalyzeItems: (analyzeItems) => set({ analyzeItems }),
   setAnalyzeLoading: (analyzeLoading) => set({ analyzeLoading }),
+  addAnalyzeItem: (item) =>
+    set((state) => {
+      const idx = state.analyzeItems.findIndex((a) => a.id === item.id);
+      if (idx >= 0) {
+        const updated = [...state.analyzeItems];
+        updated[idx] = item;
+        return { analyzeItems: updated };
+      }
+      return { analyzeItems: [...state.analyzeItems, item] };
+    }),
 
   remixLoading: false,
   setRemixLoading: (remixLoading) => set({ remixLoading }),

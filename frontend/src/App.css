@@ -479,6 +479,7 @@ input[type="text"]:focus {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   border-bottom: 1px solid var(--border);
   padding: 0 8px;
 }
@@ -569,6 +570,26 @@ input[type="text"]:focus {
   background: rgba(56, 189, 248, 0.15);
 }
 
+.track-sidebar-btn-clear {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.track-sidebar-btn-clear:hover {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #f87171;
+}
+
 .track-sidebar-btn[data-track="zoom"] {
   border-color: rgba(192, 132, 252, 0.4);
   color: #c084fc;
@@ -586,6 +607,11 @@ input[type="text"]:focus {
   position: relative;
   overflow: hidden;
   pointer-events: none;
+}
+
+.track-sidebar-btn.loading.cancellable {
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .track-sidebar-btn.loading::after {
@@ -1673,7 +1699,13 @@ input[type="text"]:focus {
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  cursor: default;
+  cursor: pointer;
+  position: relative;
+}
+
+.tl-action-render.analyze.selected {
+  background: rgba(56, 189, 248, 0.35);
+  border-color: #38bdf8;
 }
 
 .tl-action-render.analyze .tl-action-label {
@@ -1683,6 +1715,28 @@ input[type="text"]:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
+}
+
+.analyze-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+.analyze-popup {
+  position: fixed;
+  transform: translateY(calc(-100% - 8px));
+  max-width: 400px;
+  padding: 10px 14px;
+  background: #1a1a2e;
+  border: 1px solid rgba(56, 189, 248, 0.6);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  pointer-events: none;
 }
 
 /* ── Zoom Track on Timeline ── */

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Timeline as TimelineEditor, type TimelineState } from "@xzdarcy/react-timeline-editor";
 import "@xzdarcy/react-timeline-editor/dist/react-timeline-editor.css";
 import { useTimelineStore } from "../stores/timelineStore";
@@ -79,6 +80,9 @@ export function Timeline() {
   const [editingCaptionText, setEditingCaptionText] = useState("");
   const [editingTimestampId, setEditingTimestampId] = useState<number | null>(null);
   const [editingTimestampText, setEditingTimestampText] = useState("");
+  const [selectedAnalyzeId, setSelectedAnalyzeId] = useState<number | null>(null);
+  const [selectedAnalyzeText, setSelectedAnalyzeText] = useState("");
+  const [analyzePopupPos, setAnalyzePopupPos] = useState<{ x: number; y: number } | null>(null);
 
   const { rows, totalDuration } = useMemo(
     () => toEditorData(timelineItems, musicItems, titleItems, captionItems, timestampItems, trackerItems, subscribeItems, zoomItems, enlargeItems, analyzeItems),
@@ -356,18 +360,18 @@ export function Timeline() {
   const handleAddAnalyze = async () => {
     if (!project) return;
     setAnalyzeLoading(true);
-    try {
-      const res = await fetch(`/api/analyzes/${project.id}/auto`, { method: "POST" });
-      if (res.ok) {
-        const data = await res.json();
-        setAnalyzeItems(data.items);
-      } else {
-        const err = await res.json().catch(() => null);
-        alert(err?.detail || "Failed to analyze b-roll");
-      }
-    } finally {
+    const res = await fetch(`/api/analyzes/${project.id}/auto`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      alert(err?.detail || "Failed to analyze b-roll");
       setAnalyzeLoading(false);
     }
+    // Loading cleared by WebSocket "analyze_done" event
+  };
+
+  const handleCancelAnalyze = async () => {
+    if (!project) return;
+    await fetch(`/api/analyzes/${project.id}/cancel`, { method: "POST" });
   };
 
   const handleClearAnalyze = async () => {
@@ -384,6 +388,12 @@ export function Timeline() {
       if (res.ok) {
         const data = await res.json();
         setTimelineItems(data.items);
+        // Re-fetch analyze items since their times were shifted
+        const analyzeRes = await fetch(`/api/analyzes/${project.id}`);
+        if (analyzeRes.ok) {
+          const analyzeData = await analyzeRes.json();
+          setAnalyzeItems(analyzeData.items);
+        }
       } else {
         const err = await res.json().catch(() => null);
         alert(err?.detail || "Failed to generate remixes");
@@ -399,7 +409,37 @@ export function Timeline() {
     if (res.ok) {
       const data = await res.json();
       setTimelineItems(data.items);
+      const analyzeRes = await fetch(`/api/analyzes/${project.id}`);
+      if (analyzeRes.ok) {
+        const analyzeData = await analyzeRes.json();
+        setAnalyzeItems(analyzeData.items);
+      }
     }
+  };
+
+  const refreshOverlays = async () => {
+    if (!project) return;
+    const id = project.id;
+    const [music, titles, captions, timestamps, trackers, subscribes, zooms, enlarges, analyzes] = await Promise.all([
+      fetch(`/api/music/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/titles/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/captions/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/timestamps/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/trackers/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/subscribes/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/zooms/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/enlarges/${id}`).then(r => r.ok ? r.json() : null),
+      fetch(`/api/analyzes/${id}`).then(r => r.ok ? r.json() : null),
+    ]);
+    if (music) { setMusicItems(music.items); setVolumeEnvelope(music.volume_envelope); }
+    if (titles) setTitleItems(titles.items);
+    if (captions) setCaptionItems(captions.items);
+    if (timestamps) setTimestampItems(timestamps.items);
+    if (trackers) setTrackerItems(trackers.items);
+    if (subscribes) setSubscribeItems(subscribes.items);
+    if (zooms) setZoomItems(zooms.items);
+    if (enlarges) setEnlargeItems(enlarges.items);
+    if (analyzes) setAnalyzeItems(analyzes.items);
   };
 
   const handleAddHook = async () => {
@@ -410,6 +450,7 @@ export function Timeline() {
       if (res.ok) {
         const data = await res.json();
         setTimelineItems(data.items);
+        await refreshOverlays();
       } else {
         const err = await res.json().catch(() => null);
         alert(err?.detail || "Failed to generate hook");
@@ -425,13 +466,14 @@ export function Timeline() {
     if (res.ok) {
       const data = await res.json();
       setTimelineItems(data.items);
+      await refreshOverlays();
     }
   };
 
   if (!project) return null;
 
   const trackLabels = useMemo(() => {
-    const labels: { id: string; track: string; label: string; hasItems: boolean; loading: boolean; onAdd: () => void; onClear: () => void }[] = [];
+    const labels: { id: string; track: string; label: string; hasItems: boolean; loading: boolean; onAdd: () => void; onClear: () => void; onCancel?: () => void }[] = [];
     for (const row of rows) {
       if (row.id === "video-track") {
         const hasRemixes = timelineItems.some(i => i.clip_type === "remix");
@@ -453,7 +495,7 @@ export function Timeline() {
       } else if (row.id === "enlarge-track") {
         labels.push({ id: row.id, track: "enlarge", label: "Enlarge", hasItems: enlargeItems.length > 0, loading: enlargeLoading, onAdd: handleAddEnlarge, onClear: handleClearEnlarge });
       } else if (row.id === "analyze-track") {
-        labels.push({ id: row.id, track: "analyze", label: "Analyze", hasItems: analyzeItems.length > 0, loading: analyzeLoading, onAdd: handleAddAnalyze, onClear: handleClearAnalyze });
+        labels.push({ id: row.id, track: "analyze", label: "Analyze", hasItems: analyzeItems.length > 0, loading: analyzeLoading, onAdd: handleAddAnalyze, onClear: handleClearAnalyze, onCancel: handleCancelAnalyze });
       }
     }
     return labels;
@@ -485,12 +527,12 @@ export function Timeline() {
           {timelineItems.length > 0 && (
             <button
               className={`timeline-hook-btn ${hookLoading ? "loading" : ""}`}
-              onClick={timelineItems.some(i => i.label?.startsWith("hook ")) ? handleClearHook : handleAddHook}
+              onClick={timelineItems.some(i => i.label?.includes("(hook ")) ? handleClearHook : handleAddHook}
               disabled={hookLoading}
             >
               {hookLoading
                 ? "Hook..."
-                : timelineItems.some(i => i.label?.startsWith("hook "))
+                : timelineItems.some(i => i.label?.includes("(hook "))
                   ? "× Hook"
                   : "+ Hook"}
             </button>
@@ -506,15 +548,38 @@ export function Timeline() {
             <div className="track-sidebar-ruler" />
             {trackLabels.map((track) => (
               <div key={track.id} className="track-sidebar-cell">
-                <button
-                  className={`track-sidebar-btn ${track.loading ? "loading" : ""}`}
-                  data-track={track.hasItems || track.loading ? track.track : undefined}
-                  onClick={track.hasItems ? track.onClear : track.onAdd}
-                  disabled={track.loading || timelineItems.length === 0}
-                  title={track.hasItems ? `Clear ${track.label}` : `Add ${track.label}`}
-                >
-                  {track.loading ? track.label : track.hasItems ? `\u00d7 ${track.label}` : `+ ${track.label}`}
-                </button>
+                {track.track === "analyze" ? (
+                  <>
+                    <button
+                      className={`track-sidebar-btn ${track.loading ? "loading" : ""}${track.loading && track.onCancel ? " cancellable" : ""}`}
+                      data-track={track.hasItems || track.loading ? track.track : undefined}
+                      onClick={track.loading && track.onCancel ? track.onCancel : track.onAdd}
+                      disabled={track.loading && !track.onCancel || timelineItems.length === 0}
+                      title={track.loading && track.onCancel ? `Cancel ${track.label}` : `Analyze b-roll`}
+                    >
+                      {track.loading ? (track.onCancel ? `Cancel` : track.label) : `+ ${track.label}`}
+                    </button>
+                    {track.hasItems && !track.loading && (
+                      <button
+                        className="track-sidebar-btn-clear"
+                        onClick={track.onClear}
+                        title={`Clear ${track.label}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <button
+                    className={`track-sidebar-btn ${track.loading ? "loading" : ""}`}
+                    data-track={track.hasItems || track.loading ? track.track : undefined}
+                    onClick={track.loading && track.onCancel ? track.onCancel : track.hasItems ? track.onClear : track.onAdd}
+                    disabled={track.loading && !track.onCancel || timelineItems.length === 0}
+                    title={track.loading && track.onCancel ? `Cancel ${track.label}` : track.hasItems ? `Clear ${track.label}` : `Add ${track.label}`}
+                  >
+                    {track.loading ? (track.onCancel ? `Cancel` : track.label) : track.hasItems ? `\u00d7 ${track.label}` : `+ ${track.label}`}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -672,7 +737,21 @@ export function Timeline() {
               if (action.effectId === "analyze") {
                 const az = action as unknown as AnalyzeAction;
                 return (
-                  <div className="tl-action-render analyze" title={az.analyzeText}>
+                  <div
+                    className={`tl-action-render analyze ${selectedAnalyzeId === az.analyzeId ? "selected" : ""}`}
+                    onClick={(e) => {
+                      if (selectedAnalyzeId === az.analyzeId) {
+                        setSelectedAnalyzeId(null);
+                        setSelectedAnalyzeText("");
+                        setAnalyzePopupPos(null);
+                      } else {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setSelectedAnalyzeId(az.analyzeId);
+                        setSelectedAnalyzeText(az.analyzeText);
+                        setAnalyzePopupPos({ x: rect.left, y: rect.top });
+                      }
+                    }}
+                  >
                     <span className="tl-action-label">{az.analyzeText}</span>
                   </div>
                 );
@@ -719,6 +798,15 @@ export function Timeline() {
           </div>
         </div>
         </>
+      )}
+      {analyzePopupPos && selectedAnalyzeText && createPortal(
+        <>
+          <div className="analyze-popup-backdrop" onClick={() => { setSelectedAnalyzeId(null); setSelectedAnalyzeText(""); setAnalyzePopupPos(null); }} />
+          <div className="analyze-popup" style={{ left: analyzePopupPos.x, top: analyzePopupPos.y }}>
+            {selectedAnalyzeText}
+          </div>
+        </>,
+        document.body
       )}
     </div>
   );

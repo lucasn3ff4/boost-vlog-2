@@ -217,12 +217,14 @@ class AnalyzeItem(Base):
 
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    clip_id = Column(Integer, ForeignKey("clips.id"), nullable=True)
     sub_clip_id = Column(Integer, ForeignKey("sub_clips.id"), nullable=True)
     text = Column(String, nullable=False)
     start_time = Column(Float, nullable=False)
     end_time = Column(Float, nullable=False)
 
     project = relationship("Project", back_populates="analyze_items")
+    clip = relationship("Clip")
     sub_clip = relationship("SubClip")
 
 

@@ -118,6 +118,7 @@ export interface EnlargeItem {
 
 export interface AnalyzeItem {
   id: number
+  clip_id: number | null
   sub_clip_id: number | null
   text: string
   start_time: number

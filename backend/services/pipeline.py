@@ -5,11 +5,12 @@ import time
 from pathlib import Path
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import Clip, SubClip, TimelineItem, ProcessingStatus, ClipType
+from models import Clip, SubClip, TimelineItem, ProcessingStatus, ClipType, AppSettings
 from services.transcriber import extract_audio, transcribe_file
 from services.classifier import classify
 from services.silence_remover import get_duration, get_creation_time
 from routes.ws import broadcast
+from services.broll_analyzer import analyze_broll_frame
 from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
 
 logger = logging.getLogger(__name__)
@@ -244,6 +245,37 @@ async def process_clip(clip_id: int):
                 "clip_id": clip_id,
                 "clip_type": "broll",
             })
+
+            # Auto-analyze new b-roll sub-clips
+            auto_setting = db.query(AppSettings).filter(
+                AppSettings.key == "auto_analyze_broll"
+            ).first()
+            if not auto_setting or auto_setting.value != "false":
+                from routes.analyzes import _run_analysis, _collect_broll_entries
+                # Recompute timeline positions for all items to get accurate positions
+                all_tl = (
+                    db.query(TimelineItem)
+                    .filter(TimelineItem.project_id == project_id)
+                    .order_by(TimelineItem.position)
+                    .all()
+                )
+                all_broll = _collect_broll_entries(all_tl)
+                # Only analyze sub-clips belonging to this clip that don't already have analysis
+                from models import AnalyzeItem
+                new_sub_ids = {s.id for s in clip.sub_clips}
+                existing_analyzed = {
+                    (row.clip_id, row.sub_clip_id)
+                    for row in db.query(AnalyzeItem).filter(
+                        AnalyzeItem.project_id == project_id
+                    ).all()
+                }
+                auto_entries = [
+                    e for e in all_broll
+                    if e["sub_clip_id"] in new_sub_ids
+                    and (e["clip_id"], e["sub_clip_id"]) not in existing_analyzed
+                ]
+                if auto_entries:
+                    asyncio.create_task(_run_analysis(project_id, auto_entries))
 
         await broadcast(project_id, "clip_progress", {
             "clip_id": clip_id, "status": "done",

@@ -25,6 +25,7 @@ export function ProjectList() {
     setSubscribeItems,
     setZoomItems,
     setEnlargeItems,
+    setAnalyzeItems,
   } = useTimelineStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +123,12 @@ export function ProjectList() {
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data) setEnlargeItems(data.items || []);
+      });
+    // Load analyze items
+    fetch(`/api/analyzes/${id}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) setAnalyzeItems(data.items || []);
       });
     setIsWatching(true);
     // Start watching in background — new clips arrive via websocket

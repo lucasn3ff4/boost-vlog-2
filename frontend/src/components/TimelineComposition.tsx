@@ -6,7 +6,7 @@ import type { TimelineItem, MusicItem, TitleItem, CaptionItem, TimestampItem, Tr
 
 const PREMOUNT_FRAMES = 30;
 const BROLL_AUDIO_VOLUME = 0.15;
-const REMIX_AUDIO_VOLUME = 0.9;
+const REMIX_AUDIO_VOLUME = 0.8;
 
 export interface Props {
   items: TimelineItem[];

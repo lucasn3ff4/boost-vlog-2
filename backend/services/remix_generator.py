@@ -72,10 +72,12 @@ def find_boundaries(timeline_entries: list[dict]) -> list[dict]:
                 "index": len(boundaries),
                 "insert_after_position": curr["position"],
                 "broll_source_path": curr["source_path"],
+                "broll_sub_clip_id": curr.get("sub_clip_id"),
                 "broll_start": curr["start_time"],
                 "broll_end": curr["end_time"],
                 "timeline_position": curr["timeline_end"],
                 "talking_transcript": nxt["transcript"] or "",
+                "broll_description": "",
             })
         # Talking → B-roll boundary
         elif curr_type == "talking" and nxt_type == "broll":
@@ -83,10 +85,12 @@ def find_boundaries(timeline_entries: list[dict]) -> list[dict]:
                 "index": len(boundaries),
                 "insert_after_position": curr["position"],
                 "broll_source_path": nxt["source_path"],
+                "broll_sub_clip_id": nxt.get("sub_clip_id"),
                 "broll_start": nxt["start_time"],
                 "broll_end": nxt["end_time"],
                 "timeline_position": curr["timeline_end"],
                 "talking_transcript": curr["transcript"] or "",
+                "broll_description": "",
             })
 
     return boundaries
@@ -105,10 +109,12 @@ def select_boundaries_and_generate_prompts(
     boundary_descriptions = []
     for b in boundaries:
         transcript_preview = b["talking_transcript"][:500]
-        boundary_descriptions.append(
-            f"Boundary {b['index']}: at {b['timeline_position']:.1f}s in timeline. "
-            f"Transcript context: \"{transcript_preview}\""
-        )
+        broll_desc = b.get("broll_description", "")
+        desc = f"Boundary {b['index']}: at {b['timeline_position']:.1f}s in timeline."
+        if broll_desc:
+            desc += f" B-roll visual: \"{broll_desc}\""
+        desc += f" Transcript context: \"{transcript_preview}\""
+        boundary_descriptions.append(desc)
 
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -211,6 +217,8 @@ async def generate_remix_video(
         operation = client.operations.get(operation)
         logger.info("Veo operation status: done=%s (elapsed %ds)", operation.done, elapsed)
 
+    logger.info("Veo operation response: %s", operation.response)
+    logger.info("Veo operation result: %s", operation.result)
     if not operation.response or not operation.response.generated_videos:
         raise RuntimeError("Veo generation returned no videos")
 

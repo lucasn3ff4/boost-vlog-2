@@ -170,6 +170,7 @@ export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], ti
 
   const rows: TimelineRow[] = [
     { id: "video-track", actions },
+    { id: "analyze-track", actions: analyzeActions },
     { id: "music-track", actions: musicActions },
     { id: "title-track", actions: titleActions },
     { id: "caption-track", actions: captionActions },
@@ -178,7 +179,6 @@ export function toEditorData(items: TimelineItem[], musicItems?: MusicItem[], ti
     { id: "subscribe-track", actions: subscribeActions },
     { id: "zoom-track", actions: zoomActions },
     { id: "enlarge-track", actions: enlargeActions },
-    { id: "analyze-track", actions: analyzeActions },
   ];
 
   return { rows, actions, totalDuration: cursor };

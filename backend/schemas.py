@@ -300,6 +300,7 @@ class HookAutoResponse(BaseModel):
 
 class AnalyzeItemResponse(BaseModel):
     id: int
+    clip_id: int | None = None
     sub_clip_id: int | None = None
     text: str
     start_time: float
