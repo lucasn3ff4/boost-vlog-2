@@ -2,11 +2,13 @@
 
 - Record your day
 - Put videos in a folder
-- Get a vlog + 
+- Get a vlog, upload to YouTube in the app
 
 Auto-generates YouTube video title, thumbnails, and description.
 
-Upload to YouTube right from the app.
+**TIPS:**
+- Record either: "talking clips" (silences will be removed) or "b-roll clips" (these will be used for breaks between talking)
+- Upload music on the home page to auto-add music (randomly selects songs and adjusts volume)
 
 --
 
