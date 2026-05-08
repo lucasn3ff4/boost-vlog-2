@@ -10,6 +10,8 @@ from services.transcriber import extract_audio, transcribe_file
 from services.classifier import classify
 from services.silence_remover import get_duration, get_creation_time
 from services.take_selector import select_takes
+from services.gaze_filter import filter_by_gaze
+from config import GAZE_FILTER_ENABLED
 from routes.ws import broadcast
 from services.broll_analyzer import analyze_broll_frame
 from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
@@ -125,7 +127,7 @@ async def process_clip(clip_id: int):
             "progress": 72, "detail": "classifying clip type",
         })
 
-        clip_type = classify(text)
+        clip_type = classify(text, segments)
         clip.clip_type = clip_type
 
         # --- Step 3: Analyze & store time ranges (72-100%) ---
@@ -147,6 +149,17 @@ async def process_clip(clip_id: int):
                 for seg in segments
                 if (seg["end"] - seg["start"]) >= 0.1
             ]
+
+            # Drop segments where person isn't looking at the camera (reading, rehearsing)
+            if GAZE_FILTER_ENABLED:
+                await broadcast(project_id, "clip_progress", {
+                    "clip_id": clip_id, "status": "processing",
+                    "progress": 85, "detail": "checking camera eye contact",
+                })
+                video_path = clip.processed_path or clip.source_path
+                speech_segments = await asyncio.to_thread(
+                    filter_by_gaze, video_path, speech_segments
+                )
 
             # Store each speech segment as a SubClip
             for i, (start, end) in enumerate(speech_segments):

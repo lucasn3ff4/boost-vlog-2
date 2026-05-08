@@ -1,9 +1,9 @@
 from models import ClipType
-from config import TALKING_WORD_THRESHOLD
 
 
-def classify(transcript: str) -> ClipType:
-    word_count = len(transcript.split())
-    if word_count >= TALKING_WORD_THRESHOLD:
-        return ClipType.TALKING
-    return ClipType.BROLL
+def classify(transcript: str, segments: list[dict] | None = None) -> ClipType:
+    # If segment-level data is available, use it — any detected speech = TALKING
+    if segments is not None:
+        return ClipType.TALKING if segments else ClipType.BROLL
+    # Fallback: any words in transcript = TALKING
+    return ClipType.TALKING if transcript.strip() else ClipType.BROLL

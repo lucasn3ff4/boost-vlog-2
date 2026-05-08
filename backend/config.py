@@ -23,6 +23,11 @@ TAKE_SIMILARITY_THRESHOLD = 0.75  # 0.0-1.0: how similar two segments must be to
 TAKE_WINDOW_SECONDS = 120.0       # only compare segments within this time window
 TAKE_MIN_WORDS = 4                # ignore very short segments (filler words) for take detection
 
+GAZE_FILTER_ENABLED = True
+GAZE_SAMPLE_INTERVAL = 1.0        # sample one frame per second of each segment
+GAZE_MIN_FACE_RATIO = 0.3         # drop segment if face appears in <30% of frames
+GAZE_MIN_EYE_RATIO = 0.4          # drop segment if eyes visible in <40% of face frames
+
 TALKING_WORD_THRESHOLD = 5
 
 BROLL_NUM_CLIPS = 3
