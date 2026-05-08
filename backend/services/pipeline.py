@@ -14,9 +14,24 @@ from services.gaze_filter import filter_by_gaze
 from config import GAZE_FILTER_ENABLED
 from routes.ws import broadcast
 from services.broll_analyzer import analyze_broll_frame
-from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
+from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS, SEGMENT_MERGE_GAP
 
 logger = logging.getLogger(__name__)
+
+
+def _merge_segments(
+    segments: list[tuple[float, float]], max_gap: float
+) -> list[tuple[float, float]]:
+    """Merge adjacent segments separated by less than max_gap seconds."""
+    if not segments:
+        return segments
+    merged = [segments[0]]
+    for start, end in segments[1:]:
+        if start - merged[-1][1] <= max_gap:
+            merged[-1] = (merged[-1][0], end)
+        else:
+            merged.append((start, end))
+    return merged
 
 
 async def _get_video_codec(path: str) -> str:
@@ -160,6 +175,11 @@ async def process_clip(clip_id: int):
                 speech_segments = await asyncio.to_thread(
                     filter_by_gaze, video_path, speech_segments
                 )
+
+            # Merge segments with small gaps into larger continuous stretches.
+            # This avoids hundreds of tiny sub-clips — only real cuts (long silences
+            # or gaze-filtered gaps) become split points.
+            speech_segments = _merge_segments(speech_segments, SEGMENT_MERGE_GAP)
 
             # Store each speech segment as a SubClip
             for i, (start, end) in enumerate(speech_segments):
