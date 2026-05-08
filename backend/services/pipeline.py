@@ -9,6 +9,7 @@ from models import Clip, SubClip, TimelineItem, ProcessingStatus, ClipType, AppS
 from services.transcriber import extract_audio, transcribe_file
 from services.classifier import classify
 from services.silence_remover import get_duration, get_creation_time
+from services.take_selector import select_takes
 from routes.ws import broadcast
 from services.broll_analyzer import analyze_broll_frame
 from config import BROLL_NUM_CLIPS, BROLL_CLIP_DURATION, PROCESSED_DIR, BROWSER_COMPATIBLE_CODECS
@@ -136,6 +137,9 @@ async def process_clip(clip_id: int):
                 "clip_id": clip_id, "status": "processing",
                 "progress": 80, "detail": "building speech segments from transcript",
             })
+
+            # Drop repeated takes, keeping only the last/best attempt at each phrase
+            segments = select_takes(segments)
 
             # Use transcript segment timestamps directly as speech regions
             speech_segments = [

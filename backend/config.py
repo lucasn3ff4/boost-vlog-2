@@ -19,6 +19,10 @@ YOUTUBE_REDIRECT_URI = "http://localhost:8000/api/youtube/callback"
 SILENCE_THRESH_DB = -30
 MIN_SILENCE_DURATION = 0.5
 
+TAKE_SIMILARITY_THRESHOLD = 0.75  # 0.0-1.0: how similar two segments must be to count as repeated takes
+TAKE_WINDOW_SECONDS = 120.0       # only compare segments within this time window
+TAKE_MIN_WORDS = 4                # ignore very short segments (filler words) for take detection
+
 TALKING_WORD_THRESHOLD = 5
 
 BROLL_NUM_CLIPS = 3
