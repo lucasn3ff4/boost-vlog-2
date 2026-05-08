@@ -152,34 +152,42 @@ async def process_clip(clip_id: int):
         if clip_type == ClipType.TALKING:
             await broadcast(project_id, "clip_progress", {
                 "clip_id": clip_id, "status": "processing",
-                "progress": 80, "detail": "building speech segments from transcript",
+                "progress": 80, "detail": "selecting best takes",
             })
 
-            # Drop repeated takes, keeping only the last/best attempt at each phrase
+            # ── Rule 1: Best take ────────────────────────────────────────────
+            # Of any repeated sentence, keep only the last (cleanest) attempt.
             segments = select_takes(segments)
 
-            # Use transcript segment timestamps directly as speech regions
-            speech_segments = [
+            # Build per-sentence timestamps from the transcript.
+            sentence_segments = [
                 (seg["start"], seg["end"])
                 for seg in segments
                 if (seg["end"] - seg["start"]) >= 0.1
             ]
 
-            # Drop segments where person isn't looking at the camera (reading, rehearsing)
+            # ── Rule 2: Merge into speech chunks ────────────────────────────
+            # Join sentences separated by natural pauses (< SEGMENT_MERGE_GAP)
+            # into larger continuous stretches. Gaze must evaluate whole
+            # paragraphs — not individual sentences — otherwise a single
+            # glance away kills a 2-second clip unfairly.
+            speech_chunks = _merge_segments(sentence_segments, SEGMENT_MERGE_GAP)
+
+            # ── Rule 3: Camera-facing ────────────────────────────────────────
+            # Drop any chunk where the person is mostly NOT looking at the
+            # camera (reading notes, rehearsing, off-camera). Brief look-aways
+            # within an otherwise good chunk are tolerated.
             if GAZE_FILTER_ENABLED:
                 await broadcast(project_id, "clip_progress", {
                     "clip_id": clip_id, "status": "processing",
                     "progress": 85, "detail": "checking camera eye contact",
                 })
                 video_path = clip.processed_path or clip.source_path
-                speech_segments = await asyncio.to_thread(
-                    filter_by_gaze, video_path, speech_segments
+                speech_chunks = await asyncio.to_thread(
+                    filter_by_gaze, video_path, speech_chunks
                 )
 
-            # Merge segments with small gaps into larger continuous stretches.
-            # This avoids hundreds of tiny sub-clips — only real cuts (long silences
-            # or gaze-filtered gaps) become split points.
-            speech_segments = _merge_segments(speech_segments, SEGMENT_MERGE_GAP)
+            speech_segments = speech_chunks
 
             # Store each speech segment as a SubClip
             for i, (start, end) in enumerate(speech_segments):

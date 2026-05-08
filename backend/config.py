@@ -28,7 +28,7 @@ GAZE_SAMPLE_INTERVAL = 1.0        # sample one frame per second of each segment
 GAZE_MIN_FACE_RATIO = 0.3         # drop segment if face appears in <30% of frames
 GAZE_MIN_EYE_RATIO = 0.4          # drop segment if eyes visible in <40% of face frames
 
-SEGMENT_MERGE_GAP = 2.0           # merge speech segments with gaps smaller than this (seconds)
+SEGMENT_MERGE_GAP = 8.0           # merge speech segments with gaps smaller than this (seconds)
 
 TALKING_WORD_THRESHOLD = 5
 
